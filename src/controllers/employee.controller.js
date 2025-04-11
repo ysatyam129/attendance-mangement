@@ -4,11 +4,6 @@ import Employee from "../models/employee.model.js";
 import { APIresponse } from "../utils/APIresponse.js";
 import jwt from "jsonwebtoken";
 
-const isValidEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
 const generateAccessTokenAndRefreshToken = async (employeeId) => {
   try {
     const employee = await Employee.findById(employeeId);
@@ -37,10 +32,6 @@ const loginEmployee = asyncHandler(async (req, res) => {
 
   if (!employeeId && !email) {
     throw new APIError(400, "Employee ID or Email required");
-  }
-
-  if (email && !isValidEmail(email)) {
-    throw new APIError(400, "Invalid email format");
   }
 
   if (employeeId && employeeId.trim() === "") {

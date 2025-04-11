@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { ADMIN_ROLES } from "../constants.js";
 
 const adminSchema = new Schema(
   {
@@ -23,7 +24,7 @@ const adminSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["HR", "Admin", "Super-Admin"],
+      enum: ADMIN_ROLES,
       required: true,
     },
     password: {

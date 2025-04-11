@@ -1,6 +1,7 @@
 import mongoose, {Schema} from "mongoose"
 import jwt from 'jsonwebtoken'
 import bcrypt from "bcrypt"
+import { EMPLOYEE_STATUS, EMPLOYEE_TYPES } from "../constants.js";
 
 
 const employeeSchema = new Schema(
@@ -39,7 +40,7 @@ const employeeSchema = new Schema(
     },
     employeeType: {
       type: String,
-      enum: ["Full-Time", "Intern", "Contract"],
+      enum: EMPLOYEE_TYPES,
       required: true,
     },
     shiftDetails: [
@@ -63,7 +64,7 @@ const employeeSchema = new Schema(
     ],
     status:{
       type: String,
-      enum: ["active", "inactive"],
+      enum: EMPLOYEE_STATUS,
       default: "active",
     },
     password: {

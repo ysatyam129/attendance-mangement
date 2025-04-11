@@ -4,8 +4,9 @@ import Admin from "../models/admin.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/APIerror.js";
 import { APIresponse } from "../utils/APIresponse.js";
+import { EMPLOYEE_TYPES, ADMIN_ROLES } from "../constants.js";
 
-const VALID_ADMIN_ROLES = ["HR", "Admin", "Super Admin"];
+
 
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,8 +22,6 @@ const isStrongPassword = (password) => {
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
   return passwordRegex.test(password);
 };
-
-const VALID_EMPLOYEE_TYPES = ["Full-Time", "Contract", "Intern"];
 
 const validateShiftDetails = (shifts) => {
   if (!Array.isArray(shifts)) {
@@ -103,10 +102,10 @@ const registerAdmin = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid phone number. Must be 10 digits");
   }
 
-  if (!VALID_ADMIN_ROLES.includes(role)) {
+  if (!ADMIN_ROLES.includes(role)) {
     throw new APIError(
       400,
-      `Invalid admin role. Must be one of: ${VALID_ADMIN_ROLES.join(", ")}`
+      `Invalid admin role. Must be one of: ${ADMIN_ROLES.join(", ")}`
     );
   }
 
@@ -455,10 +454,10 @@ const registerEmployee = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid phone number. Must be 10 digits");
   }
 
-  if (!VALID_EMPLOYEE_TYPES.includes(employeeType)) {
+  if (!EMPLOYEE_TYPES.includes(employeeType)) {
     throw new APIError(
       400,
-      `Invalid employee type. Must be one of: ${VALID_EMPLOYEE_TYPES.join(", ")}`
+      `Invalid employee type. Must be one of: ${EMPLOYEE_TYPES.join(", ")}`
     );
   }
 
