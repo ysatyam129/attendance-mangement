@@ -85,13 +85,14 @@ const generateAccessTokenAndRefreshToken = async (adminId) => {
 };
 
 const registerAdmin = asyncHandler(async (req, res) => {
-  const { username, email, phone, role, password } = req.body;
+  const { name, email, phone, role, password } = req.body;
+  console.log(req.body);
 
-  if (!username || !email || !phone || !role || !password) {
+  if (!name || !email || !phone || !role || !password) {
     throw new APIError(400, "All required fields must be provided");
   }
 
-  if ([username, email, role, password].some((field) => field.trim() === "")) {
+  if ([name, email, role, password].some((field) => field.trim() === "")) {
     throw new APIError(400, "No empty field is allowed");
   }
 
@@ -118,7 +119,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
   }
 
   const existedAdmin = await Admin.findOne({
-    $or: [{ username }, { email }],
+    $or: [{ name }, { email }],
   });
 
   if (existedAdmin) {
@@ -127,7 +128,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
 
   try {
     const admin = await Admin.create({
-      username,
+      name,
       email: email.toLowerCase(),
       phone,
       role,
@@ -156,9 +157,9 @@ const registerAdmin = asyncHandler(async (req, res) => {
 });
 
 const loginAdmin = asyncHandler(async (req, res) => {
-  const { email, username, password } = req.body;
+  const { email,  password } = req.body;
 
-  if (!username && !email) {
+  if ( !email) {
     throw new APIError(400, "Username or Email required");
   }
 
@@ -166,9 +167,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid email format");
   }
 
-  if (username && username.trim() === "") {
-    throw new APIError(400, "Username cannot be empty");
-  }
+  
 
   if (!password || password.trim() === "") {
     throw new APIError(400, "Password is required");
@@ -176,7 +175,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
 
   const admin = await Admin.findOne({
     $or: [
-      { username: username ? username : "" },
+     
       { email: email ? email.toLowerCase() : "" },
     ],
   });

@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 
 const adminSchema = new Schema(
   {
-    username: {
+    name: {
       type: String,
       required: true,
       trim: true,
@@ -54,7 +54,7 @@ adminSchema.methods.generateAccessToken = function () {
     {
       _id: this._id,
       email: this.email,
-      username: this.username,
+      name: this.name,
     },
     process.env.ACCESS_TOKEN_SECRET,
     {
