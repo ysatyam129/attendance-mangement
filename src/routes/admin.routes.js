@@ -14,8 +14,8 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 // Public routes
-router.route("/register").post(registerAdmin);
-router.route("/login").post(loginAdmin);
+router.route("/auth/register").post(registerAdmin);
+router.route("/auth/login").post(loginAdmin);
 router.route("/refresh-token").post(refreshAccessToken);
 
 // Protected routes
