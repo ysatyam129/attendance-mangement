@@ -1,10 +1,11 @@
 import mongoose, { Schema } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { ADMIN_ROLES } from "../constants.js";
 
 const adminSchema = new Schema(
   {
-    username: {
+    name: {
       type: String,
       required: true,
       trim: true,
@@ -23,7 +24,7 @@ const adminSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["HR", "Admin", "Super-Admin"],
+      enum: ADMIN_ROLES,
       required: true,
     },
     password: {
@@ -54,7 +55,7 @@ adminSchema.methods.generateAccessToken = function () {
     {
       _id: this._id,
       email: this.email,
-      username: this.username,
+      name: this.name,
     },
     process.env.ACCESS_TOKEN_SECRET,
     {
