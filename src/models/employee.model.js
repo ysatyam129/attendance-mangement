@@ -1,8 +1,11 @@
 import mongoose, {Schema} from "mongoose"
 import jwt from 'jsonwebtoken'
 import bcrypt from "bcrypt"
-import { EMPLOYEE_STATUS, EMPLOYEE_TYPES } from "../constants.js";
-
+import {
+  EMPLOYEE_STATUS,
+  EMPLOYEE_TYPES,
+  EMPLOYEE_SHIFT,
+} from "../constants.js";
 
 const employeeSchema = new Schema(
   {
@@ -26,11 +29,15 @@ const employeeSchema = new Schema(
       lowercase: true,
       trim: true,
     },
-    phone: {
+    phoneNumber: {
       type: Number,
       required: true,
     },
     designations: {
+      type: String,
+      required: true,
+    },
+    department: {
       type: String,
       required: true,
     },
@@ -43,26 +50,12 @@ const employeeSchema = new Schema(
       enum: EMPLOYEE_TYPES,
       required: true,
     },
-    shiftDetails: [
-      {
-        shiftNumber: {
-          type: Number,
-        },
-        date:{
-          type: Date,
-          required: true,
-        },
-        startTime: {
-          type: Date,
-          required: true,
-        },
-        endTime: {
-          type: Date,
-          required: true,
-        },
-      },
-    ],
-    status:{
+    shiftDetails: {
+      type: String,
+      enum: EMPLOYEE_SHIFT,
+      required: true,
+    },
+    status: {
       type: String,
       enum: EMPLOYEE_STATUS,
       default: "active",
@@ -70,6 +63,11 @@ const employeeSchema = new Schema(
     password: {
       type: String,
       required: [true, "Password is Required"],
+    },
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      required: true,
     },
     refreshToken: {
       type: String,

@@ -425,6 +425,8 @@ const registerEmployee = asyncHandler(async (req, res) => {
     password,
   } = req.body;
 
+  const admin = req.admin
+
   if (
     !employeeId ||
     !fullname ||
@@ -505,6 +507,7 @@ const registerEmployee = asyncHandler(async (req, res) => {
       employeeType,
       shiftDetails: formattedShiftDetails,
       password,
+      adminId:admin._id,
     });
 
     const createdEmployee = await Employee.findById(employee._id).select(
@@ -532,6 +535,202 @@ const registerEmployee = asyncHandler(async (req, res) => {
   }
 });
 
+const getEmployees = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+  console.log(incomingRefreshToken);
+
+  if (!incomingRefreshToken) {
+    throw new APIError(401, "Unauthorized request - Refresh token missing");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const employees = await Employee.find({ adminId: decodedToken._id })
+      .select("-password -refreshToken")
+      .sort({ createdAt: -1 });
+
+    if (!employees) {
+      throw new APIError(404, "No employees found for this admin");
+    }
+
+    return res
+      .status(200)
+      .json(new APIresponse(200, employees, "Employees fetched successfully"));
+  } catch (error) {
+    throw new APIError(400, `Unable to access employees details: ${error.message}`);
+  }
+});
+
+const updateEmployee = asyncHandler(async (req, res) => {
+  const { employeeId } = req.body;
+  const admin = req.admin;
+
+  if (!employeeId) {
+    throw new APIError(400, "Employee ID is required");
+  }
+
+  const {
+    fullname,
+    email,
+    phone,
+    designations,
+    joiningDate,
+    employeeType,
+    shiftDetails,
+  } = req.body;
+
+  if (req.body.shiftDetails && !Array.isArray(req.body.shiftDetails)) {
+    req.body.shiftDetails = [req.body.shiftDetails];
+  }
+
+  const employee = await Employee.findById(employeeId);
+
+  if (!employee) {
+    throw new APIError(404, "Employee not found");
+  }
+
+  if (employee.adminId.toString() !== admin._id.toString()) {
+    throw new APIError(
+      403,
+      "You don't have permission to update this employee"
+    );
+  }
+
+  if (email && !isValidEmail(email)) {
+    throw new APIError(400, "Invalid email format");
+  }
+
+  if (phone && !isValidPhone(phone)) {
+    throw new APIError(400, "Invalid phone number. Must be 10 digits");
+  }
+
+  if (employeeType && !EMPLOYEE_TYPES.includes(employeeType)) {
+    throw new APIError(
+      400,
+      `Invalid employee type. Must be one of: ${EMPLOYEE_TYPES.join(", ")}`
+    );
+  }
+
+  if (joiningDate && !isValidDate(joiningDate)) {
+    throw new APIError(400, "Invalid joining date format");
+  }
+
+  if (shiftDetails && !validateShiftDetails(shiftDetails)) {
+    throw new APIError(400, "Invalid shift details format or values");
+  }
+
+  if (email || employeeId) {
+    const existingEmployee = await Employee.findOne({
+      $and: [
+        { _id: { $ne: employeeId } },
+        {
+          $or: [
+            ...(email ? [{ email: email.toLowerCase() }] : []),
+            ...(employeeId ? [{ employeeId }] : []),
+          ],
+        },
+      ],
+    });
+
+    if (existingEmployee) {
+      throw new APIError(409, "Employee with this ID or Email already exists");
+    }
+  }
+
+  const updateData = {};
+
+  if (employeeId) updateData.employeeId = employeeId;
+  if (fullname) updateData.fullname = fullname.toLowerCase();
+  if (email) updateData.email = email.toLowerCase();
+  if (phone) updateData.phone = phone;
+  if (designations) updateData.designations = designations;
+  if (joiningDate) updateData.joiningDate = new Date(joiningDate);
+  if (employeeType) updateData.employeeType = employeeType;
+
+  if (shiftDetails) {
+    updateData.shiftDetails = shiftDetails.map((shift) => ({
+      shiftNumber: shift.shiftNumber,
+      date: new Date(shift.date),
+      startTime: new Date(shift.startTime),
+      endTime: new Date(shift.endTime),
+    }));
+  }
+
+  try {
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      employeeId,
+      { $set: updateData },
+      { new: true }
+    ).select("-password -refreshToken");
+
+    if (!updatedEmployee) {
+      throw new APIError(
+        500,
+        "Something went wrong while updating the employee"
+      );
+    }
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(200, updatedEmployee, "Employee updated successfully")
+      );
+  } catch (error) {
+    throw new APIError(500, `Failed to update employee: ${error.message}`);
+  }
+});
+
+const deleteEmployee = asyncHandler(async (req, res) => {
+  const { employeeId } = req.body;
+  const admin = req.admin;
+
+  if (!employeeId) {
+    throw new APIError(400, "Employee ID is required");
+  }
+
+  const employee = await Employee.findById(employeeId);
+
+  if (!employee) {
+    throw new APIError(404, "Employee not found");
+  }
+
+  if (employee.adminId.toString() !== admin._id.toString()) {
+    throw new APIError(
+      403,
+      "You don't have permission to delete this employee"
+    );
+  }
+
+  try {
+
+    const deletedEmployee = await Employee.findByIdAndDelete(employeeId);
+
+    if (!deletedEmployee) {
+      throw new APIError(
+        500,
+        "Something went wrong while deleting the employee"
+      );
+    }
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(
+          200,
+          { id: deletedEmployee._id },
+          "Employee deleted successfully"
+        )
+      );
+  } catch (error) {
+    throw new APIError(500, `Failed to delete employee: ${error.message}`);
+  }
+});
+
 export {
   registerAdmin,
   loginAdmin,
@@ -541,4 +740,7 @@ export {
   updateAdminProfile,
   changeAdminPassword,
   registerEmployee,
+  getEmployees,
+  updateEmployee,
+  deleteEmployee
 };

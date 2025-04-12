@@ -172,4 +172,39 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { loginEmployee, logoutEmployee, refreshAccessToken };
+const getEmployeeProfile = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new APIError(401, "Unauthorized request - Refresh token missing");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const employee = await Employee.findById({ _id: decodedToken._id })
+      .select("-password -refreshToken")
+
+    if (!employee) {
+      throw new APIError(404, "Invalid credentials or employee not found");
+    }
+
+    return res.json(new APIresponse(200, employee, "Employee details fetched successfully"))
+  } catch (error) {
+    throw new APIError(
+      400,
+      `Unable to access employees details: ${error.message}`
+    );
+  }
+});
+
+export {
+  loginEmployee,
+  logoutEmployee,
+  refreshAccessToken,
+  getEmployeeProfile,
+};
