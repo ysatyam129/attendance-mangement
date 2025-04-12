@@ -1,8 +1,6 @@
 import connectDB from "./db/index.js";
 import dotenv from "dotenv"
 import app from "./app.js"
-import adminRouter from "./routes/admin.routes.js";
-import employeeRouter from "./routes/employee.routes.js";
 
 dotenv.config({
     path:'./.env'
@@ -23,6 +21,3 @@ connectDB()
   .catch((error)=>{
     console.log("DB connection Failed from Index.js");
   })
-
-app.use("/api/admin", adminRouter);
-app.use("/api/employee", employeeRouter);
