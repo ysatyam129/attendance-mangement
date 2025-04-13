@@ -4,7 +4,7 @@ import Admin from "../models/admin.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/APIerror.js";
 import { APIresponse } from "../utils/APIresponse.js";
-import { EMPLOYEE_TYPES, ADMIN_ROLES } from "../constants.js";
+import { EMPLOYEE_TYPES, ADMIN_ROLES, EMPLOYEE_SHIFT } from "../constants.js";
 
 
 
@@ -23,37 +23,8 @@ const isStrongPassword = (password) => {
   return passwordRegex.test(password);
 };
 
-const validateShiftDetails = (shifts) => {
-  if (!Array.isArray(shifts)) {
-    return false;
-  }
-
-  for (const shift of shifts) {
-    if (shift.shiftNumber === undefined || isNaN(shift.shiftNumber)) {
-      return false;
-    }
-
-    if (!shift.date || isNaN(new Date(shift.date))) {
-      return false;
-    }
-
-    if (!shift.startTime || isNaN(new Date(shift.startTime))) {
-      return false;
-    }
-
-    if (!shift.endTime || isNaN(new Date(shift.endTime))) {
-      return false;
-    }
-
-    const startTime = new Date(shift.startTime);
-    const endTime = new Date(shift.endTime);
-
-    if (endTime <= startTime) {
-      return false;
-    }
-  }
-
-  return true;
+const validateShiftDetails = (shift) => {
+  return EMPLOYEE_SHIFT.includes(shift);
 };
 
 const isValidDate = (date) => {
@@ -85,7 +56,6 @@ const generateAccessTokenAndRefreshToken = async (adminId) => {
 
 const registerAdmin = asyncHandler(async (req, res) => {
   const { name, email, phone, role, password } = req.body;
-  console.log(req.body);
 
   if (!name || !email || !phone || !role || !password) {
     throw new APIError(400, "All required fields must be provided");
@@ -409,10 +379,6 @@ const changeAdminPassword = asyncHandler(async (req, res) => {
 });
 
 const registerEmployee = asyncHandler(async (req, res) => {
-  if (req.body.shiftDetails && !Array.isArray(req.body.shiftDetails)) {
-    req.body.shiftDetails = [req.body.shiftDetails];
-  }
-
   const {
     employeeId,
     fullname,
@@ -422,10 +388,10 @@ const registerEmployee = asyncHandler(async (req, res) => {
     joiningDate,
     employeeType,
     shiftDetails,
-    password,
   } = req.body;
 
   const admin = req.admin
+  const password = email.split("@")[0];
 
   if (
     !employeeId ||
@@ -434,15 +400,22 @@ const registerEmployee = asyncHandler(async (req, res) => {
     !phone ||
     !designations ||
     !employeeType ||
-    !password
+    !password ||
+    !shiftDetails
   ) {
     throw new APIError(400, "All required fields must be provided");
   }
 
   if (
-    [employeeId, fullname, email, designations, employeeType, password].some(
-      (field) => field.trim() === ""
-    )
+    [
+      employeeId,
+      fullname,
+      email,
+      designations,
+      employeeType,
+      password,
+      shiftDetails,
+    ].some((field) => field.trim() === "")
   ) {
     throw new APIError(400, "No empty field is allowed");
   }
@@ -538,7 +511,6 @@ const registerEmployee = asyncHandler(async (req, res) => {
 const getEmployees = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
-  console.log(incomingRefreshToken);
 
   if (!incomingRefreshToken) {
     throw new APIError(401, "Unauthorized request - Refresh token missing");
