@@ -6,8 +6,6 @@ import { APIError } from "../utils/APIerror.js";
 import { APIresponse } from "../utils/APIresponse.js";
 import { EMPLOYEE_TYPES, ADMIN_ROLES, EMPLOYEE_SHIFT } from "../constants.js";
 
-
-
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -87,9 +85,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
     );
   }
 
-  const existedAdmin = await Admin.findOne({
-    $or: [{ name }, { email }],
-  });
+  const existedAdmin = await Admin.findOne({email: email.toLowerCase() });
 
   if (existedAdmin) {
     throw new APIError(409, "Admin with this username or email already exists");
@@ -142,12 +138,7 @@ const loginAdmin = asyncHandler(async (req, res) => {
     throw new APIError(400, "Password is required");
   }
 
-  const admin = await Admin.findOne({
-    $or: [
-     
-      { email: email ? email.toLowerCase() : "" },
-    ],
-  });
+  const admin = await Admin.findOne({email: email.toLowerCase()});
 
   if (!admin) {
     throw new APIError(404, "Admin does not exist");
@@ -703,6 +694,91 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   }
 });
 
+const markAttendance = asyncHandler(async (req, res) => {
+  let employees = req.body;
+  const admin = req.admin;
+
+  if (!employees || (Array.isArray(employees) && employees.length === 0)) {
+    throw new APIError(400, "No employees provided for attendance marking");
+  }
+
+  if (!Array.isArray(employees)) {
+    employees = [employees];
+  }
+
+  try {
+    // Fetch IDs of employees that belong to this admin
+    const adminEmployees = await EmployeeModel.find({ adminId: admin._id })
+      .select("_id")
+      .lean();
+
+    // Set of valid employee IDs
+    const employeeSet = new Set(
+      adminEmployees.map((emp) => emp._id.toString())
+    );
+
+    const allRecords = [];
+    const invalidEmployees = [];
+
+    for (const employee of employees) {
+      const { employeeId, shiftDetails, status, date, remarks } = employee;
+
+      if (!employeeId || !status || !shiftDetails) {
+        throw new APIError(
+          400,
+          "Employee ID, shiftDetails and status are required"
+        );
+      }
+
+      // Check if this employee belongs to the admin
+      if (employeeSet.has(employeeId)) {
+        allRecords.push({
+          adminId: admin._id,
+          employeeId,
+          shiftDetails,
+          status,
+          date: date ? new Date(date) : new Date(),
+          remarks: remarks || "",
+        });
+      } else {
+        invalidEmployees.push(employeeId);
+      }
+    }
+
+    if (allRecords.length === 0) {
+      throw new APIError(
+        400,
+        "None of the provided employees belong to this admin"
+      );
+    }
+
+    const attendanceRecords = await AttendanceModel.insertMany(allRecords);
+
+    if (!attendanceRecords) {
+      throw new APIError(500, "Something went wrong while marking attendance");
+    }
+
+    // Include information about skipped employees in the response
+    const responseMessage =
+      invalidEmployees.length > 0
+        ? `Attendance marked successfully. Skipped ${invalidEmployees.length} employees that don't belong to this admin.`
+        : "Attendance marked successfully";
+
+    return res.status(200).json(
+      new APIresponse(
+        200,
+        {
+          attendanceRecords,
+          skippedEmployees: invalidEmployees,
+        },
+        responseMessage
+      )
+    );
+  } catch (error) {
+    throw new APIError(500, `Failed to mark attendance: ${error.message}`);
+  }
+});
+
 export {
   registerAdmin,
   loginAdmin,
@@ -714,5 +790,6 @@ export {
   registerEmployee,
   getEmployees,
   updateEmployee,
-  deleteEmployee
+  deleteEmployee,
+  markAttendance,
 };
