@@ -28,26 +28,16 @@ const generateAccessTokenAndRefreshToken = async (employeeId) => {
 };
 
 const loginEmployee = asyncHandler(async (req, res) => {
-  const { email, employeeId, password } = req.body;
-
-  if (!employeeId && !email) {
+  const { email, password } = req.body;
+  if (!email) {
     throw new APIError(400, "Employee ID or Email required");
-  }
-
-  if (employeeId && employeeId.trim() === "") {
-    throw new APIError(400, "Employee ID cannot be empty");
   }
 
   if (!password || password.trim() === "") {
     throw new APIError(400, "Password is required");
   }
 
-  const employee = await Employee.findOne({
-    $or: [
-      { employeeId: employeeId ? employeeId : "" },
-      { email: email ? email.toLowerCase() : "" },
-    ],
-  });
+  const employee = await Employee.findOne({email: email.toLowerCase()});
 
   if (!employee) {
     throw new APIError(404, "Employee does not exist");

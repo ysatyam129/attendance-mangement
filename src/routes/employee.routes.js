@@ -4,7 +4,7 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 // Public routes
-router.route("/login").post(loginEmployee);
+router.route("/employee-login").post(loginEmployee);
 
 // Protected routes
 router.route("/logout").post(verifyJWT, logoutEmployee);
