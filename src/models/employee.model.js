@@ -20,7 +20,6 @@ const employeeSchema = new Schema(
       type: String,
       lowercase: true,
       trim: true,
-      index: true,
     },
     email: {
       type: String,
@@ -28,6 +27,7 @@ const employeeSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
     phoneNumber: {
       type: Number,
