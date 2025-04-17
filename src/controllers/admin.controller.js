@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/APIerror.js";
 import { APIresponse } from "../utils/APIresponse.js";
 import { EMPLOYEE_TYPES, ADMIN_ROLES, EMPLOYEE_SHIFT } from "../constants.js";
+import EmployeeModel from "../models/employee.model.js";
 
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -694,6 +695,30 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   }
 });
 
+const getEmployeeDetails = asyncHandler(async (req, res) => {
+  const admin = req.admin;
+
+  try {
+    const employees = await EmployeeModel.find({ adminId: admin._id }).select(
+      "_id employeeId adminId fullname designations department employeeType shiftDetails attendanceStatus"
+    );
+    console.log(employees);
+
+    if (!employees) {
+      throw new APIError(404, "No employees found for this admin");
+    }
+
+    return res
+      .status(200)
+      .json(new APIresponse(200, employees, "Employees fetched successfully"));
+  } catch (error) {
+    throw new APIError(
+      400,
+      `Unable to access employees details: ${error.message}`
+    );
+  }
+});
+
 const markAttendance = asyncHandler(async (req, res) => {
   let employees = req.body;
   const admin = req.admin;
@@ -721,9 +746,10 @@ const markAttendance = asyncHandler(async (req, res) => {
     const invalidEmployees = [];
 
     for (const employee of employees) {
-      const { employeeId, shiftDetails, status, date, remarks } = employee;
+      const { employeeId, shiftDetails, attendanceStatus, date, remarks } =
+        employee;
 
-      if (!employeeId || !status || !shiftDetails) {
+      if (!employeeId || !attendanceStatus || !shiftDetails) {
         throw new APIError(
           400,
           "Employee ID, shiftDetails and status are required"
@@ -736,7 +762,7 @@ const markAttendance = asyncHandler(async (req, res) => {
           adminId: admin._id,
           employeeId,
           shiftDetails,
-          status,
+          attendanceStatus,
           date: date ? new Date(date) : new Date(),
           remarks: remarks || "",
         });
@@ -791,5 +817,6 @@ export {
   getEmployees,
   updateEmployee,
   deleteEmployee,
+  getEmployeeDetails,
   markAttendance,
 };
