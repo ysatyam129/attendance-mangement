@@ -5,6 +5,7 @@ import {
   EMPLOYEE_STATUS,
   EMPLOYEE_TYPES,
   EMPLOYEE_SHIFT,
+  EMPLOYEE_ATTENDANCE_STATUS,
 } from "../constants.js";
 
 const employeeSchema = new Schema(
@@ -60,6 +61,11 @@ const employeeSchema = new Schema(
       enum: EMPLOYEE_STATUS,
       default: "active",
     },
+    attendanceStatus: {
+      type: String,
+      enum: EMPLOYEE_ATTENDANCE_STATUS,
+      default: "Mark",
+    },
     password: {
       type: String,
       required: [true, "Password is Required"],
@@ -114,6 +120,6 @@ employeeSchema.methods.generateRefreshToken = function () {
   );
 };
 
-const employeeModel = mongoose.model("Employees", employeeSchema);
+const EmployeeModel = mongoose.model("Employees", employeeSchema);
 
-export default employeeModel
+export default EmployeeModel
