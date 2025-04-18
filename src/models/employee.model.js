@@ -30,11 +30,11 @@ const employeeSchema = new Schema(
       trim: true,
       index: true,
     },
-    phoneNumber: {
+    phone: {
       type: Number,
       required: true,
     },
-    designations: {
+    designation: {
       type: String,
       required: true,
     },
