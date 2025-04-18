@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { EMPLOYEE_ATTENDANCE_STATUS, EMPLOYEE_SHIFT } from "../constants"; 
+import { EMPLOYEE_ATTENDANCE_STATUS, EMPLOYEE_SHIFT } from "../constants.js"; 
 
 const attendanceSchema = new Schema(
   {
@@ -10,17 +10,12 @@ const attendanceSchema = new Schema(
       index: true,
     },
     employeeId: {
-      type: mongoose.Schema.Types.String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
       required: true,
       index: true,
     },
-    shiftDetails: {
-      type: String,
-      enum: EMPLOYEE_SHIFT,
-      required: true,
-    },
-    status: {
+    attendanceStatus: {
       type: String,
       enum: EMPLOYEE_ATTENDANCE_STATUS,
       required: true,
