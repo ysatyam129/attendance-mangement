@@ -1,11 +1,13 @@
 import jwt from "jsonwebtoken";
-import Employee from "../models/employee.model.js";
-import Admin from "../models/admin.model.js";
+
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/APIerror.js";
 import { APIresponse } from "../utils/APIresponse.js";
 import { EMPLOYEE_TYPES, ADMIN_ROLES, EMPLOYEE_SHIFT } from "../constants.js";
+
+import Admin from "../models/admin.model.js";
 import EmployeeModel from "../models/employee.model.js";
+import AttendanceModel from "../models/attendance.model.js";
 
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -376,7 +378,8 @@ const registerEmployee = asyncHandler(async (req, res) => {
     fullname,
     email,
     phone,
-    designations,
+    designation,
+    department,
     joiningDate,
     employeeType,
     shiftDetails,
@@ -390,7 +393,8 @@ const registerEmployee = asyncHandler(async (req, res) => {
     !fullname ||
     !email ||
     !phone ||
-    !designations ||
+    !designation ||
+    !department ||
     !employeeType ||
     !password ||
     !shiftDetails
@@ -403,7 +407,8 @@ const registerEmployee = asyncHandler(async (req, res) => {
       employeeId,
       fullname,
       email,
-      designations,
+      designation,
+      department,
       employeeType,
       password,
       shiftDetails,
@@ -427,12 +432,12 @@ const registerEmployee = asyncHandler(async (req, res) => {
     );
   }
 
-  if (!isStrongPassword(password)) {
-    throw new APIError(
-      400,
-      "Password must be at least 8 characters long and include uppercase, lowercase, and numbers"
-    );
-  }
+  // if (!isStrongPassword(password)) {
+  //   throw new APIError(
+  //     400,
+  //     "Password must be at least 8 characters long and include uppercase, lowercase, and numbers"
+  //   );
+  // }
 
   if (joiningDate && !isValidDate(joiningDate)) {
     throw new APIError(400, "Invalid joining date format");
@@ -442,7 +447,7 @@ const registerEmployee = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid shift details format or values");
   }
 
-  const existedEmployee = await Employee.findOne({
+  const existedEmployee = await EmployeeModel.findOne({
     $or: [{ employeeId }, { email }],
   });
 
@@ -452,30 +457,22 @@ const registerEmployee = asyncHandler(async (req, res) => {
 
   const formattedJoiningDate = joiningDate ? new Date(joiningDate) : new Date();
 
-  const formattedShiftDetails = shiftDetails
-    ? shiftDetails.map((shift) => ({
-        shiftNumber: shift.shiftNumber,
-        date: new Date(shift.date),
-        startTime: new Date(shift.startTime),
-        endTime: new Date(shift.endTime),
-      }))
-    : [];
-
   try {
-    const employee = await Employee.create({
+    const employee = await EmployeeModel.create({
       employeeId,
       fullname: fullname.toLowerCase(),
       email: email.toLowerCase(),
       phone,
-      designations,
+      designation,
+      department,
       joiningDate: formattedJoiningDate,
       employeeType,
-      shiftDetails: formattedShiftDetails,
+      shiftDetails,
       password,
-      adminId:admin._id,
+      adminId: admin._id,
     });
 
-    const createdEmployee = await Employee.findById(employee._id).select(
+    const createdEmployee = await EmployeeModel.findById(employee._id).select(
       "-password -refreshToken"
     );
 
@@ -514,7 +511,7 @@ const getEmployees = asyncHandler(async (req, res) => {
       process.env.REFRESH_TOKEN_SECRET
     );
 
-    const employees = await Employee.find({ adminId: decodedToken._id })
+    const employees = await EmployeeModel.find({ adminId: decodedToken._id })
       .select("-password -refreshToken")
       .sort({ createdAt: -1 });
 
@@ -542,7 +539,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
     fullname,
     email,
     phone,
-    designations,
+    designation,
     joiningDate,
     employeeType,
     shiftDetails,
@@ -552,7 +549,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
     req.body.shiftDetails = [req.body.shiftDetails];
   }
 
-  const employee = await Employee.findById(employeeId);
+  const employee = await EmployeeModel.findById(employeeId);
 
   if (!employee) {
     throw new APIError(404, "Employee not found");
@@ -589,7 +586,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   }
 
   if (email || employeeId) {
-    const existingEmployee = await Employee.findOne({
+    const existingEmployee = await EmployeeModel.findOne({
       $and: [
         { _id: { $ne: employeeId } },
         {
@@ -612,7 +609,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (fullname) updateData.fullname = fullname.toLowerCase();
   if (email) updateData.email = email.toLowerCase();
   if (phone) updateData.phone = phone;
-  if (designations) updateData.designations = designations;
+  if (designation) updateData.designation = designation;
   if (joiningDate) updateData.joiningDate = new Date(joiningDate);
   if (employeeType) updateData.employeeType = employeeType;
 
@@ -626,7 +623,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   }
 
   try {
-    const updatedEmployee = await Employee.findByIdAndUpdate(
+    const updatedEmployee = await EmployeeModel.findByIdAndUpdate(
       employeeId,
       { $set: updateData },
       { new: true }
@@ -657,7 +654,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
     throw new APIError(400, "Employee ID is required");
   }
 
-  const employee = await Employee.findById(employeeId);
+  const employee = await EmployeeModel.findById(employeeId);
 
   if (!employee) {
     throw new APIError(404, "Employee not found");
@@ -672,7 +669,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
   try {
 
-    const deletedEmployee = await Employee.findByIdAndDelete(employeeId);
+    const deletedEmployee = await EmployeeModel.findByIdAndDelete(employeeId);
 
     if (!deletedEmployee) {
       throw new APIError(
@@ -700,17 +697,50 @@ const getEmployeeDetails = asyncHandler(async (req, res) => {
 
   try {
     const employees = await EmployeeModel.find({ adminId: admin._id }).select(
-      "_id employeeId adminId fullname designations department employeeType shiftDetails attendanceStatus"
+      "_id employeeId adminId fullname designation department employeeType shiftDetails attendanceStatus"
     );
-    console.log(employees);
 
-    if (!employees) {
+    if (!employees || employees.length === 0) {
       throw new APIError(404, "No employees found for this admin");
     }
 
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    const attendanceRecords = await AttendanceModel.find({
+      employeeId: { $in: employees.map((emp) => emp._id) },
+      date: { $gte: startOfDay, $lte: endOfDay },
+    }).select("-createdAt -updatedAt -__v");
+
+    const employeesWithAttendance = employees.map((employee) => {
+      const todayAttendance = attendanceRecords.find(
+        (record) => record.employeeId.toString() === employee._id.toString()
+      );
+      if (todayAttendance) {
+        const employeeObj = employee.toObject();
+        const attendanceObj = todayAttendance.toObject();
+        return {
+          ...employeeObj,
+          adminId: attendanceObj.adminId,
+          attendanceStatus: attendanceObj.attendanceStatus,
+          date: attendanceObj.date,
+          remarks: attendanceObj.remarks,
+        };
+      } else {
+        return employee.toObject();
+      }
+    });
+
     return res
       .status(200)
-      .json(new APIresponse(200, employees, "Employees fetched successfully"));
+      .json(
+        new APIresponse(
+          200,
+          { employees: employeesWithAttendance },
+          "Employees fetched successfully"
+        )
+      );
   } catch (error) {
     throw new APIError(
       400,
@@ -720,16 +750,14 @@ const getEmployeeDetails = asyncHandler(async (req, res) => {
 });
 
 const markAttendance = asyncHandler(async (req, res) => {
-  let employees = req.body;
+  const { date, records } = req.body.attendanceData;
   const admin = req.admin;
 
-  if (!employees || (Array.isArray(employees) && employees.length === 0)) {
-    throw new APIError(400, "No employees provided for attendance marking");
+  if (!date || !records || (Array.isArray(records) && records.length === 0)) {
+    throw new APIError(400, "No employees or date provided for attendance marking");
   }
 
-  if (!Array.isArray(employees)) {
-    employees = [employees];
-  }
+  const recordsArray = Array.isArray(records) ? records : [records];
 
   try {
     // Fetch IDs of employees that belong to this admin
@@ -745,23 +773,21 @@ const markAttendance = asyncHandler(async (req, res) => {
     const allRecords = [];
     const invalidEmployees = [];
 
-    for (const employee of employees) {
-      const { employeeId, shiftDetails, attendanceStatus, date, remarks } =
-        employee;
+    for (const record of recordsArray) {
+      const { employeeId, attendanceStatus, remarks } = record;
 
-      if (!employeeId || !attendanceStatus || !shiftDetails) {
+      if (!employeeId || !attendanceStatus) {
         throw new APIError(
           400,
-          "Employee ID, shiftDetails and status are required"
+          "Employee ID and attendanceStatus are required"
         );
       }
 
       // Check if this employee belongs to the admin
-      if (employeeSet.has(employeeId)) {
+      if (employeeSet.has(employeeId.toString())) {
         allRecords.push({
           adminId: admin._id,
           employeeId,
-          shiftDetails,
           attendanceStatus,
           date: date ? new Date(date) : new Date(),
           remarks: remarks || "",
