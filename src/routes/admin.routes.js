@@ -33,7 +33,7 @@ router.route("/change-password").post(verifyJWT, changeAdminPassword);
 router.route("/register-employee").post(verifyJWT, registerEmployee);
 router.route("/get-employees").get(verifyJWT, getEmployees);
 router.route("/update-employee").patch(verifyJWT, updateEmployee);
-router.route("/delete-employee").delete(verifyJWT, deleteEmployee);
+router.route("/delete-employee").post(verifyJWT, deleteEmployee);
 router.route("/get-employee-details").get(verifyJWT, getEmployeeDetails);
 router.route("/mark-attendance").post(verifyJWT, markAttendance);
 

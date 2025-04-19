@@ -528,14 +528,8 @@ const getEmployees = asyncHandler(async (req, res) => {
 });
 
 const updateEmployee = asyncHandler(async (req, res) => {
-  const { employeeId } = req.body;
-  const admin = req.admin;
-
-  if (!employeeId) {
-    throw new APIError(400, "Employee ID is required");
-  }
-
   const {
+    employeeId,
     fullname,
     email,
     phone,
@@ -545,8 +539,10 @@ const updateEmployee = asyncHandler(async (req, res) => {
     shiftDetails,
   } = req.body;
 
-  if (req.body.shiftDetails && !Array.isArray(req.body.shiftDetails)) {
-    req.body.shiftDetails = [req.body.shiftDetails];
+  const admin = req.admin;
+
+  if (!employeeId) {
+    throw new APIError(400, "Employee ID is required");
   }
 
   const employee = await EmployeeModel.findById(employeeId);
@@ -612,15 +608,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (designation) updateData.designation = designation;
   if (joiningDate) updateData.joiningDate = new Date(joiningDate);
   if (employeeType) updateData.employeeType = employeeType;
-
-  if (shiftDetails) {
-    updateData.shiftDetails = shiftDetails.map((shift) => ({
-      shiftNumber: shift.shiftNumber,
-      date: new Date(shift.date),
-      startTime: new Date(shift.startTime),
-      endTime: new Date(shift.endTime),
-    }));
-  }
+  if (shiftDetails) updateData.shiftDetails = shiftDetails;
 
   try {
     const updatedEmployee = await EmployeeModel.findByIdAndUpdate(
@@ -649,12 +637,12 @@ const updateEmployee = asyncHandler(async (req, res) => {
 const deleteEmployee = asyncHandler(async (req, res) => {
   const { employeeId } = req.body;
   const admin = req.admin;
-
   if (!employeeId) {
     throw new APIError(400, "Employee ID is required");
   }
 
-  const employee = await EmployeeModel.findById(employeeId);
+  // Find employee by employeeId field instead of _id
+  const employee = await EmployeeModel.findOne({ employeeId: employeeId });
 
   if (!employee) {
     throw new APIError(404, "Employee not found");
@@ -668,8 +656,10 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   }
 
   try {
-
-    const deletedEmployee = await EmployeeModel.findByIdAndDelete(employeeId);
+    // Delete employee by employeeId field
+    const deletedEmployee = await EmployeeModel.findOneAndDelete({
+      employeeId: employeeId,
+    });
 
     if (!deletedEmployee) {
       throw new APIError(
@@ -683,7 +673,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
       .json(
         new APIresponse(
           200,
-          { id: deletedEmployee._id },
+          { employeeId: deletedEmployee.employeeId },
           "Employee deleted successfully"
         )
       );
