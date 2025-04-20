@@ -88,7 +88,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
     );
   }
 
-  const existedAdmin = await Admin.findOne({email: email.toLowerCase() });
+  const existedAdmin = await Admin.findOne({ email: email.toLowerCase() });
 
   if (existedAdmin) {
     throw new APIError(409, "Admin with this username or email already exists");
@@ -125,9 +125,9 @@ const registerAdmin = asyncHandler(async (req, res) => {
 });
 
 const loginAdmin = asyncHandler(async (req, res) => {
-  const { email,  password } = req.body;
+  const { email, password } = req.body;
 
-  if ( !email) {
+  if (!email) {
     throw new APIError(400, "Username or Email required");
   }
 
@@ -135,13 +135,11 @@ const loginAdmin = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid email format");
   }
 
-  
-
   if (!password || password.trim() === "") {
     throw new APIError(400, "Password is required");
   }
 
-  const admin = await Admin.findOne({email: email.toLowerCase()});
+  const admin = await Admin.findOne({ email: email.toLowerCase() });
 
   if (!admin) {
     throw new APIError(404, "Admin does not exist");
@@ -385,7 +383,7 @@ const registerEmployee = asyncHandler(async (req, res) => {
     shiftDetails,
   } = req.body;
 
-  const admin = req.admin
+  const admin = req.admin;
   const password = email.split("@")[0];
 
   if (
@@ -523,7 +521,10 @@ const getEmployees = asyncHandler(async (req, res) => {
       .status(200)
       .json(new APIresponse(200, employees, "Employees fetched successfully"));
   } catch (error) {
-    throw new APIError(400, `Unable to access employees details: ${error.message}`);
+    throw new APIError(
+      400,
+      `Unable to access employees details: ${error.message}`
+    );
   }
 });
 
@@ -744,7 +745,10 @@ const markAttendance = asyncHandler(async (req, res) => {
   const admin = req.admin;
 
   if (!date || !records || (Array.isArray(records) && records.length === 0)) {
-    throw new APIError(400, "No employees or date provided for attendance marking");
+    throw new APIError(
+      400,
+      "No employees or date provided for attendance marking"
+    );
   }
 
   const recordsArray = Array.isArray(records) ? records : [records];
@@ -821,6 +825,82 @@ const markAttendance = asyncHandler(async (req, res) => {
   }
 });
 
+const getHistory = asyncHandler(async (req, res) => {
+  const admin = req.admin;
+  const { dateRange } = req.body;
+
+  let startDate, endDate;
+
+  if (!dateRange) {
+    startDate = new Date().toISOString().split("T")[0];
+    endDate = null;
+  } else {
+    startDate = dateRange.startDate;
+    endDate = dateRange.endDate;
+
+    if (!isValidDate(startDate) || (endDate && !isValidDate(endDate))) {
+      throw new APIError(400, "Invalid date range provided");
+    }
+  }
+
+  try {
+    const dateQuery = { $lte: new Date(startDate) };
+    
+    if (endDate) {
+      dateQuery.$gte = new Date(endDate);
+    }
+
+    const attendanceRecords = await AttendanceModel.find({
+      adminId: admin._id,
+      date: dateQuery,
+    })
+      .select("-createdAt -updatedAt -__v")
+      .sort({ date: -1 });
+
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      throw new APIError(404, "No attendance records found");
+    }
+
+    const groupedByDate = {};
+
+    attendanceRecords.forEach((record) => {
+      const dateString = record.date.toISOString().split("T")[0];
+
+      if (!groupedByDate[dateString]) {
+        groupedByDate[dateString] = [];
+      }
+
+      groupedByDate[dateString].push({
+        employeeId: record.employeeId,
+        attendanceStatus: record.attendanceStatus,
+        remarks: record.remarks || null,
+      });
+    });
+
+    const formattedRecords = Object.keys(groupedByDate).map((date) => {
+      return {
+        date: date,
+        records: groupedByDate[date],
+      };
+    });
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(
+          200,
+          formattedRecords,
+          "Attendance history fetched successfully"
+        )
+      );
+  } catch (error) {
+    throw new APIError(
+      500,
+      `Failed to fetch attendance history: ${error.message}`
+    );
+  }
+});
+
 export {
   registerAdmin,
   loginAdmin,
@@ -835,4 +915,5 @@ export {
   deleteEmployee,
   getEmployeeDetails,
   markAttendance,
+  getHistory,
 };
