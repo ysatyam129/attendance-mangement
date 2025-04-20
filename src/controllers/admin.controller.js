@@ -88,7 +88,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
     );
   }
 
-  const existedAdmin = await Admin.findOne({email: email.toLowerCase() });
+  const existedAdmin = await Admin.findOne({ email: email.toLowerCase() });
 
   if (existedAdmin) {
     throw new APIError(409, "Admin with this username or email already exists");
@@ -125,9 +125,9 @@ const registerAdmin = asyncHandler(async (req, res) => {
 });
 
 const loginAdmin = asyncHandler(async (req, res) => {
-  const { email,  password } = req.body;
+  const { email, password } = req.body;
 
-  if ( !email) {
+  if (!email) {
     throw new APIError(400, "Username or Email required");
   }
 
@@ -135,13 +135,11 @@ const loginAdmin = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid email format");
   }
 
-  
-
   if (!password || password.trim() === "") {
     throw new APIError(400, "Password is required");
   }
 
-  const admin = await Admin.findOne({email: email.toLowerCase()});
+  const admin = await Admin.findOne({ email: email.toLowerCase() });
 
   if (!admin) {
     throw new APIError(404, "Admin does not exist");
@@ -385,7 +383,7 @@ const registerEmployee = asyncHandler(async (req, res) => {
     shiftDetails,
   } = req.body;
 
-  const admin = req.admin
+  const admin = req.admin;
   const password = email.split("@")[0];
 
   if (
@@ -523,19 +521,16 @@ const getEmployees = asyncHandler(async (req, res) => {
       .status(200)
       .json(new APIresponse(200, employees, "Employees fetched successfully"));
   } catch (error) {
-    throw new APIError(400, `Unable to access employees details: ${error.message}`);
+    throw new APIError(
+      400,
+      `Unable to access employees details: ${error.message}`
+    );
   }
 });
 
 const updateEmployee = asyncHandler(async (req, res) => {
-  const { employeeId } = req.body;
-  const admin = req.admin;
-
-  if (!employeeId) {
-    throw new APIError(400, "Employee ID is required");
-  }
-
   const {
+    employeeId,
     fullname,
     email,
     phone,
@@ -545,8 +540,10 @@ const updateEmployee = asyncHandler(async (req, res) => {
     shiftDetails,
   } = req.body;
 
-  if (req.body.shiftDetails && !Array.isArray(req.body.shiftDetails)) {
-    req.body.shiftDetails = [req.body.shiftDetails];
+  const admin = req.admin;
+
+  if (!employeeId) {
+    throw new APIError(400, "Employee ID is required");
   }
 
   const employee = await EmployeeModel.findById(employeeId);
@@ -612,15 +609,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (designation) updateData.designation = designation;
   if (joiningDate) updateData.joiningDate = new Date(joiningDate);
   if (employeeType) updateData.employeeType = employeeType;
-
-  if (shiftDetails) {
-    updateData.shiftDetails = shiftDetails.map((shift) => ({
-      shiftNumber: shift.shiftNumber,
-      date: new Date(shift.date),
-      startTime: new Date(shift.startTime),
-      endTime: new Date(shift.endTime),
-    }));
-  }
+  if (shiftDetails) updateData.shiftDetails = shiftDetails;
 
   try {
     const updatedEmployee = await EmployeeModel.findByIdAndUpdate(
@@ -649,12 +638,12 @@ const updateEmployee = asyncHandler(async (req, res) => {
 const deleteEmployee = asyncHandler(async (req, res) => {
   const { employeeId } = req.body;
   const admin = req.admin;
-
   if (!employeeId) {
     throw new APIError(400, "Employee ID is required");
   }
 
-  const employee = await EmployeeModel.findById(employeeId);
+  // Find employee by employeeId field instead of _id
+  const employee = await EmployeeModel.findOne({ employeeId: employeeId });
 
   if (!employee) {
     throw new APIError(404, "Employee not found");
@@ -668,8 +657,10 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   }
 
   try {
-
-    const deletedEmployee = await EmployeeModel.findByIdAndDelete(employeeId);
+    // Delete employee by employeeId field
+    const deletedEmployee = await EmployeeModel.findOneAndDelete({
+      employeeId: employeeId,
+    });
 
     if (!deletedEmployee) {
       throw new APIError(
@@ -683,7 +674,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
       .json(
         new APIresponse(
           200,
-          { id: deletedEmployee._id },
+          { employeeId: deletedEmployee.employeeId },
           "Employee deleted successfully"
         )
       );
@@ -754,7 +745,10 @@ const markAttendance = asyncHandler(async (req, res) => {
   const admin = req.admin;
 
   if (!date || !records || (Array.isArray(records) && records.length === 0)) {
-    throw new APIError(400, "No employees or date provided for attendance marking");
+    throw new APIError(
+      400,
+      "No employees or date provided for attendance marking"
+    );
   }
 
   const recordsArray = Array.isArray(records) ? records : [records];
@@ -831,6 +825,82 @@ const markAttendance = asyncHandler(async (req, res) => {
   }
 });
 
+const getHistory = asyncHandler(async (req, res) => {
+  const admin = req.admin;
+  const { dateRange } = req.body;
+
+  let startDate, endDate;
+
+  if (!dateRange) {
+    startDate = new Date().toISOString().split("T")[0];
+    endDate = null;
+  } else {
+    startDate = dateRange.startDate;
+    endDate = dateRange.endDate;
+
+    if (!isValidDate(startDate) || (endDate && !isValidDate(endDate))) {
+      throw new APIError(400, "Invalid date range provided");
+    }
+  }
+
+  try {
+    const dateQuery = { $lte: new Date(startDate) };
+    
+    if (endDate) {
+      dateQuery.$gte = new Date(endDate);
+    }
+
+    const attendanceRecords = await AttendanceModel.find({
+      adminId: admin._id,
+      date: dateQuery,
+    })
+      .select("-createdAt -updatedAt -__v")
+      .sort({ date: -1 });
+
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      throw new APIError(404, "No attendance records found");
+    }
+
+    const groupedByDate = {};
+
+    attendanceRecords.forEach((record) => {
+      const dateString = record.date.toISOString().split("T")[0];
+
+      if (!groupedByDate[dateString]) {
+        groupedByDate[dateString] = [];
+      }
+
+      groupedByDate[dateString].push({
+        employeeId: record.employeeId,
+        attendanceStatus: record.attendanceStatus,
+        remarks: record.remarks || null,
+      });
+    });
+
+    const formattedRecords = Object.keys(groupedByDate).map((date) => {
+      return {
+        date: date,
+        records: groupedByDate[date],
+      };
+    });
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(
+          200,
+          formattedRecords,
+          "Attendance history fetched successfully"
+        )
+      );
+  } catch (error) {
+    throw new APIError(
+      500,
+      `Failed to fetch attendance history: ${error.message}`
+    );
+  }
+});
+
 export {
   registerAdmin,
   loginAdmin,
@@ -845,4 +915,5 @@ export {
   deleteEmployee,
   getEmployeeDetails,
   markAttendance,
+  getHistory,
 };
