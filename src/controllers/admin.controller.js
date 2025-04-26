@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { ObjectId } from "mongodb";
 
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/APIerror.js";
@@ -8,6 +9,7 @@ import { EMPLOYEE_TYPES, ADMIN_ROLES, EMPLOYEE_SHIFT } from "../constants.js";
 import Admin from "../models/admin.model.js";
 import EmployeeModel from "../models/employee.model.js";
 import AttendanceModel from "../models/attendance.model.js";
+import LeaveModel from "../models/leave.model.js";
 
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -845,17 +847,48 @@ const getHistory = asyncHandler(async (req, res) => {
 
   try {
     const dateQuery = { $lte: new Date(startDate) };
-    
+
     if (endDate) {
       dateQuery.$gte = new Date(endDate);
     }
 
-    const attendanceRecords = await AttendanceModel.find({
-      adminId: admin._id,
-      date: dateQuery,
-    })
-      .select("-createdAt -updatedAt -__v")
-      .sort({ date: -1 });
+    const attendanceRecords = await AttendanceModel.aggregate([
+      {
+        $match: {
+          adminId: new ObjectId(`${admin._id}`),
+        },
+      },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "employeeId",
+          foreignField: "_id",
+          as: "employee",
+        },
+      },
+      {
+        $unwind: {
+          path: "$employee",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          date: 1,
+          attendanceStatus: 1,
+          employeeId: "$employee.employeeId",
+          remarks: 1,
+          fullname: "$employee.fullname",
+          department: "$employee.department",
+          designation: "$employee.designation",
+        },
+      },
+      {
+        $sort: {
+          date: -1,
+        },
+      },
+    ]);
 
     if (!attendanceRecords || attendanceRecords.length === 0) {
       throw new APIError(404, "No attendance records found");
@@ -901,6 +934,98 @@ const getHistory = asyncHandler(async (req, res) => {
   }
 });
 
+const getLeaveDetails = asyncHandler(async (req, res) => {
+  const admin = req.admin;
+
+  try {
+    const leaveRecords = await LeaveModel.aggregate([
+      {
+        $match: {
+          adminId: new ObjectId(`${admin._id}`),
+        },
+      },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "employeeId",
+          foreignField: "_id",
+          as: "employee",
+        },
+      },
+      {
+        $unwind: {
+          path: "$employee",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          adminId: 1,
+          employeeName: "$employee.fullname",
+          employeeId: "$employee.employeeId",
+          department: "$employee.department",
+          leaveType: 1,
+          reason: 1,
+          status: 1,
+          startDate: 1,
+          endDate: 1,
+          submittedAt: "$createdAt",
+        },
+      },
+      {
+        $sort: {
+          date: -1,
+        },
+      },
+    ]);
+    if (!leaveRecords || leaveRecords.length === 0) {
+      throw new APIError(404, "No leave records found");
+    }
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(200, leaveRecords, "Leave records fetched successfully")
+      );
+  } catch (error) {
+    throw new APIError(500, `Failed to fetch leave details: ${error.message}`);
+  }
+});
+
+const setLeaveStatus = asyncHandler(async (req, res) => {
+  const { leaveId, status } = req.body;
+  const admin = req.admin;
+
+  if (!leaveId || !status) {
+    throw new APIError(400, "Leave ID and status are required");
+  }
+
+  try {
+    const leaveRecord = await LeaveModel.findById(leaveId);
+
+    if (!leaveRecord) {
+      throw new APIError(404, "Leave record not found");
+    }
+
+    if (leaveRecord.adminId.toString() !== admin._id.toString()) {
+      throw new APIError(
+        403,
+        "You don't have permission to update this leave record"
+      );
+    }
+
+    leaveRecord.status = status;
+    await leaveRecord.save();
+
+    return res
+      .status(200)
+      .json(new APIresponse(200, {}, "Leave status updated successfully"));
+  } catch (error) {
+    throw new APIError(500, `Failed to update leave status: ${error.message}`);
+  }
+});
+
 export {
   registerAdmin,
   loginAdmin,
@@ -916,4 +1041,6 @@ export {
   getEmployeeDetails,
   markAttendance,
   getHistory,
+  getLeaveDetails,
+  setLeaveStatus,
 };
