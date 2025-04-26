@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import Employee from "../models/employee.model.js";
 import LeaveModel from "../models/leave.model.js";
 import AttendanceModel from "../models/attendance.model.js";
+import { ObjectId } from "mongodb";
 
 const generateAccessTokenAndRefreshToken = async (employeeId) => {
   try {
@@ -240,7 +241,7 @@ const applyLeave = asyncHandler(async (req, res) => {
 });
 
 const getLeaveHistory = asyncHandler(async (req, res) => {
-  const { _id } = req.body;
+  const { _id } = req.employee;
 
   try {
     const leaveHistory = await LeaveModel.aggregate([
@@ -282,16 +283,17 @@ const getLeaveHistory = asyncHandler(async (req, res) => {
     if (!leaveHistory) {
       throw new APIError(404, "No leave history found");
     }
+
+    return res.json(
+      new APIresponse(200, leaveHistory, "Leave history fetched successfully")
+    );
+
   } catch (error) {
     throw new APIError(
       500,
       "Something went wrong while fetching leave history: " + error.message
     );
   }
-
-  return res.json(
-    new APIresponse(200, leaveHistory, "Leave history fetched successfully")
-  );
 });
 
 const deleteLeave = asyncHandler(async (req, res) => {
