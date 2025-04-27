@@ -907,6 +907,9 @@ const getHistory = asyncHandler(async (req, res) => {
         employeeId: record.employeeId,
         attendanceStatus: record.attendanceStatus,
         remarks: record.remarks || null,
+        fullname: record.fullname,
+        department: record.department,
+        designation: record.designation,
       });
     });
 
