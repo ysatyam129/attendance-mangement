@@ -287,7 +287,6 @@ const getLeaveHistory = asyncHandler(async (req, res) => {
     return res.json(
       new APIresponse(200, leaveHistory, "Leave history fetched successfully")
     );
-
   } catch (error) {
     throw new APIError(
       500,
@@ -297,37 +296,53 @@ const getLeaveHistory = asyncHandler(async (req, res) => {
 });
 
 const deleteLeave = asyncHandler(async (req, res) => {
-  const { leaveId } = req.body;
-  if (!leaveId) {
-    throw new APIError(400, "Leave ID is required");
+  try {
+    const { leaveId } = req.body;
+    if (!leaveId) {
+      throw new APIError(400, "Leave ID is required");
+    }
+
+    const leave = await LeaveModel.findById(leaveId);
+    if (!leave) {
+      throw new APIError(404, "Leave not found");
+    }
+
+    await LeaveModel.findByIdAndDelete(leaveId);
+
+    return res.json(new APIresponse(200, {}, "Leave deleted successfully"));
+  } catch (error) {
+    throw new APIError(
+      500,
+      "Something went wrong while deleting leave: " + error.message
+    );
   }
-
-  const leave = await LeaveModel.findById(leaveId);
-  if (!leave) {
-    throw new APIError(404, "Leave not found");
-  }
-
-  await LeaveModel.findByIdAndDelete(leaveId);
-
-  return res.json(new APIresponse(200, {}, "Leave deleted successfully"));
 });
 
 const getAttendanceHistory = asyncHandler(async (req, res) => {
-  const employee = await AttendanceModel.findById(req.employee._id).select(
-    "-password -refreshToken"
-  );
+  const { _id } = req.employee;
+  try {
+    const attendanceHistory = await AttendanceModel.find({
+      employeeId: _id,
+    }).select("date attendanceStatus remarks"); 
 
-  if (!employee) {
-    throw new APIError(404, "Employee not found");
+    if (!attendanceHistory) {
+      throw new APIError(404, "No records found");
+    }
+
+    return res.json(
+      new APIresponse(
+        200,
+        attendanceHistory,
+        "Attendance history fetched successfully"
+      )
+    );
+  } catch (error) {
+    throw new APIError(
+      500,
+      "Something went wrong while fetching the attendance history: " +
+        error.message
+    );
   }
-
-  return res.json(
-    new APIresponse(
-      200,
-      employee.attendanceHistory,
-      "Attendance history fetched successfully"
-    )
-  );
 });
 
 export {
