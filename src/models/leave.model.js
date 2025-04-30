@@ -37,6 +37,10 @@ const leaveSchema = new Schema(
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
     },
+    rejectedReason:{
+      type: String,
+      default: null,
+    }
   },
   {
     timestamps: true,
