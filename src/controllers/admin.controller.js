@@ -973,6 +973,7 @@ const getLeaveDetails = asyncHandler(async (req, res) => {
           status: 1,
           startDate: 1,
           endDate: 1,
+          rejectedReason: 1,
           submittedAt: "$createdAt",
         },
       },
@@ -997,36 +998,46 @@ const getLeaveDetails = asyncHandler(async (req, res) => {
 });
 
 const setLeaveStatus = asyncHandler(async (req, res) => {
-  const { leaveId, status } = req.body;
+  const { leaveId, status, } = req.body;
+  const { rejectedReason = "" } = req.body || {};
   const admin = req.admin;
 
   if (!leaveId || !status) {
     throw new APIError(400, "Leave ID and status are required");
   }
 
-  try {
-    const leaveRecord = await LeaveModel.findById(leaveId);
+  if (status == "rejected" && !req.body.rejectedReason){
+    throw new APIError(400, "Leave rejected reason is required");
+  }
 
-    if (!leaveRecord) {
-      throw new APIError(404, "Leave record not found");
-    }
+    try {
+      const leaveRecord = await LeaveModel.findById(leaveId);
 
-    if (leaveRecord.adminId.toString() !== admin._id.toString()) {
+      if (!leaveRecord) {
+        throw new APIError(404, "Leave record not found");
+      }
+
+      if (leaveRecord.adminId.toString() !== admin._id.toString()) {
+        throw new APIError(
+          403,
+          "You don't have permission to update this leave record"
+        );
+      }
+
+      leaveRecord.status = status;
+      leaveRecord.rejectedReason = rejectedReason || null;
+      leaveRecord.updatedAt = new Date();
+      await leaveRecord.save();
+
+      return res
+        .status(200)
+        .json(new APIresponse(200, {}, "Leave status updated successfully"));
+    } catch (error) {
       throw new APIError(
-        403,
-        "You don't have permission to update this leave record"
+        500,
+        `Failed to update leave status: ${error.message}`
       );
     }
-
-    leaveRecord.status = status;
-    await leaveRecord.save();
-
-    return res
-      .status(200)
-      .json(new APIresponse(200, {}, "Leave status updated successfully"));
-  } catch (error) {
-    throw new APIError(500, `Failed to update leave status: ${error.message}`);
-  }
 });
 
 export {
