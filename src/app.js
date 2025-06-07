@@ -11,7 +11,7 @@ const app = express()
 // }))
 app.use(
     cors({
-      origin:"http://localhost:3000",
+      origin:"https://ipr-01250401001.vercel.app/",
       credentials: true,
     })
   );
