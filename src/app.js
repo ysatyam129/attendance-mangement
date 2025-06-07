@@ -11,7 +11,8 @@ const app = express()
 // }))
 app.use(
     cors({
-      origin:"https://atm.indibus.net/",
+      origin:"https://atm.indibus.net",
+    
       credentials: true,
     })
   );
@@ -27,7 +28,7 @@ app.use(cookieParser())
 
 
 import adminRoutes from "./routes/admin.routes.js"
-app.use("/api/v1/", adminRoutes)
+app.use("/api/v1", adminRoutes)
 
 
 import employeeRoutes from "./routes/employee.routes.js"
