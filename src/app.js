@@ -11,7 +11,7 @@ const app = express()
 // }))
 app.use(
     cors({
-      origin:"https://ipr-01250401001.vercel.app/",
+      origin:"https://atm.indibus.net/",
       credentials: true,
     })
   );
