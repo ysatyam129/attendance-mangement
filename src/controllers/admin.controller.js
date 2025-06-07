@@ -874,6 +874,7 @@ const getHistory = asyncHandler(async (req, res) => {
       },
       {
         $project: {
+          _id: 1,
           date: 1,
           attendanceStatus: 1,
           employeeId: "$employee.employeeId",
@@ -904,6 +905,7 @@ const getHistory = asyncHandler(async (req, res) => {
       }
 
       groupedByDate[dateString].push({
+        _id: record._id,
         employeeId: record.employeeId,
         attendanceStatus: record.attendanceStatus,
         remarks: record.remarks || null,
@@ -999,14 +1001,16 @@ const getLeaveDetails = asyncHandler(async (req, res) => {
 
 const setLeaveStatus = asyncHandler(async (req, res) => {
   const { leaveId, status, } = req.body;
-  const { rejectedReason = "" } = req.body || {};
+  const { rejectionReason  } = req.body || {};
+
+  console.log("This is the rejected reason", rejectionReason);
   const admin = req.admin;
 
   if (!leaveId || !status) {
     throw new APIError(400, "Leave ID and status are required");
   }
 
-  if (status == "rejected" && !req.body.rejectedReason){
+  if (status == "rejected" && !req.body.rejectionReason){
     throw new APIError(400, "Leave rejected reason is required");
   }
 
@@ -1025,7 +1029,7 @@ const setLeaveStatus = asyncHandler(async (req, res) => {
       }
 
       leaveRecord.status = status;
-      leaveRecord.rejectedReason = rejectedReason || null;
+      leaveRecord.rejectedReason = rejectionReason || null;
       leaveRecord.updatedAt = new Date();
       await leaveRecord.save();
 
@@ -1038,6 +1042,58 @@ const setLeaveStatus = asyncHandler(async (req, res) => {
         `Failed to update leave status: ${error.message}`
       );
     }
+});
+
+const updateAttendance = asyncHandler(async (req, res) => {
+  try {
+  const { employeeId, date, attendanceStatus, remarks } = req.body;
+  const admin = req.admin;
+
+  if (!employeeId || !date || !attendanceStatus) {
+    throw new APIError(
+      400,
+      "Employee ID, date, and attendanceStatus are required"
+    );
+  }
+
+  const employee = await EmployeeModel.findOne({
+    _id: employeeId,
+    adminId: admin._id,
+  });
+  if (!employee) {
+    throw new APIError(
+      403,
+      "This employee does not belong to the authenticated admin"
+    );
+  }
+
+    const updatedRecord = await AttendanceModel.findOneAndUpdate(
+      { employeeId, date: new Date(date) },
+      {
+        $set: {
+          attendanceStatus,
+          remarks: remarks || "",
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedRecord) {
+      throw new APIError(
+        404,
+        "No attendance record found for this employee on the specified date"
+      );
+    }
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(200, updatedRecord, "Attendance updated successfully")
+      );
+  } catch (error) {
+    console.error("Error at update attendance: ", error)
+    throw new APIError(500, `Failed to update attendance: ${error.message}`);
+  }
 });
 
 export {
@@ -1057,4 +1113,5 @@ export {
   getHistory,
   getLeaveDetails,
   setLeaveStatus,
+  updateAttendance
 };

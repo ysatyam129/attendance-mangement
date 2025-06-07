@@ -15,6 +15,7 @@ import {
   getHistory,
   getLeaveDetails,
   setLeaveStatus,
+  updateAttendance
 } from "../controllers/admin.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { getEmployees } from "../controllers/admin.controller.js";
@@ -42,5 +43,6 @@ router.route("/mark-attendance").post(verifyJWT, markAttendance);
 router.route("/get-attendance-history").get(verifyJWT, getHistory)
 router.route("/get-leave-history").get(verifyJWT, getLeaveDetails);
 router.route("/set-leave-status").patch(verifyJWT, setLeaveStatus);
+router.route("/update-attendance").patch(verifyJWT, updateAttendance);
 
 export default router;
