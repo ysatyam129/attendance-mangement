@@ -59,7 +59,7 @@ const generateAccessTokenAndRefreshToken = async (adminId) => {
 
 const registerAdmin = asyncHandler(async (req, res) => {
   const { name, email, phone, role, password } = req.body;
-
+  console.log("This is the body of the request", req.body);
   if (!name || !email || !phone || !role || !password) {
     throw new APIError(400, "All required fields must be provided");
   }
