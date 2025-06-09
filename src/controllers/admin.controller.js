@@ -52,7 +52,7 @@ const generateAccessTokenAndRefreshToken = async (adminId) => {
     throw new APIError(
       500,
       "Something went wrong while generating access and refresh token: " +
-        error.message
+      error.message
     );
   }
 };
@@ -531,6 +531,8 @@ const getEmployees = asyncHandler(async (req, res) => {
 });
 
 const updateEmployee = asyncHandler(async (req, res) => {
+  console.log("This is the body of the request", req.body);
+  // const employeeId = req.params.employeeId;
   const {
     employeeId,
     fullname,
@@ -604,7 +606,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
   const updateData = {};
 
-  if (employeeId) updateData.employeeId = employeeId;
+  // if (employeeId) updateData.employeeId = employeeId;
   if (fullname) updateData.fullname = fullname.toLowerCase();
   if (email) updateData.email = email.toLowerCase();
   if (phone) updateData.phone = phone;
@@ -1001,7 +1003,7 @@ const getLeaveDetails = asyncHandler(async (req, res) => {
 
 const setLeaveStatus = asyncHandler(async (req, res) => {
   const { leaveId, status, } = req.body;
-  const { rejectionReason  } = req.body || {};
+  const { rejectionReason } = req.body || {};
 
   console.log("This is the rejected reason", rejectionReason);
   const admin = req.admin;
@@ -1010,69 +1012,75 @@ const setLeaveStatus = asyncHandler(async (req, res) => {
     throw new APIError(400, "Leave ID and status are required");
   }
 
-  if (status == "rejected" && !req.body.rejectionReason){
+  if (status == "rejected" && !req.body.rejectionReason) {
     throw new APIError(400, "Leave rejected reason is required");
   }
 
-    try {
-      const leaveRecord = await LeaveModel.findById(leaveId);
+  try {
+    const leaveRecord = await LeaveModel.findById(leaveId);
 
-      if (!leaveRecord) {
-        throw new APIError(404, "Leave record not found");
-      }
+    if (!leaveRecord) {
+      throw new APIError(404, "Leave record not found");
+    }
 
-      if (leaveRecord.adminId.toString() !== admin._id.toString()) {
-        throw new APIError(
-          403,
-          "You don't have permission to update this leave record"
-        );
-      }
-
-      leaveRecord.status = status;
-      leaveRecord.rejectedReason = rejectionReason || null;
-      leaveRecord.updatedAt = new Date();
-      await leaveRecord.save();
-
-      return res
-        .status(200)
-        .json(new APIresponse(200, {}, "Leave status updated successfully"));
-    } catch (error) {
+    if (leaveRecord.adminId.toString() !== admin._id.toString()) {
       throw new APIError(
-        500,
-        `Failed to update leave status: ${error.message}`
+        403,
+        "You don't have permission to update this leave record"
       );
     }
+
+    leaveRecord.status = status;
+    leaveRecord.rejectedReason = rejectionReason || null;
+    leaveRecord.updatedAt = new Date();
+    await leaveRecord.save();
+
+    return res
+      .status(200)
+      .json(new APIresponse(200, {}, "Leave status updated successfully"));
+  } catch (error) {
+    throw new APIError(
+      500,
+      `Failed to update leave status: ${error.message}`
+    );
+  }
 });
 
 const updateAttendance = asyncHandler(async (req, res) => {
   try {
-  const { employeeId, date, attendanceStatus, remarks } = req.body;
-  const admin = req.admin;
+    const { employeeId, date, newStatus, newRemarks } = req.body;
+    const admin = req.admin;
 
-  if (!employeeId || !date || !attendanceStatus) {
-    throw new APIError(
-      400,
-      "Employee ID, date, and attendanceStatus are required"
-    );
-  }
+    console.log("This is the body of the request", req.body);
 
-  const employee = await EmployeeModel.findOne({
-    _id: employeeId,
-    adminId: admin._id,
-  });
-  if (!employee) {
-    throw new APIError(
-      403,
-      "This employee does not belong to the authenticated admin"
-    );
-  }
+    if (!employeeId || !date || !newStatus) {
+      throw new APIError(
+        400,
+        "Employee ID, date, and newStatus are required"
+      );
+    }
+
+    // const employee = await EmployeeModel.findOne({
+    //   employeeId,
+    //   adminId: admin._id,
+    // });
+    // if (!employee) {
+    //   throw new APIError(
+    //     403,
+    //     "This employee does not belong to the authenticated admin"
+    //   );
+    // }
+
+    // console.log(employee)
+
+    // const Id = employee._id
 
     const updatedRecord = await AttendanceModel.findOneAndUpdate(
-      { employeeId, date: new Date(date) },
+      { _id: employeeId},
       {
         $set: {
-          attendanceStatus,
-          remarks: remarks || "",
+          attendanceStatus: newStatus,
+          remarks: newRemarks || "",
         },
       },
       { new: true }
