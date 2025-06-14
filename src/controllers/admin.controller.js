@@ -1104,6 +1104,150 @@ const updateAttendance = asyncHandler(async (req, res) => {
   }
 });
 
+const markBulkAttendance = asyncHandler(async (req, res) => {
+  const { startDate, endDate, records } = req.body;
+  const admin = req.admin;
+
+  // Input validation
+  if (
+    !startDate ||
+    !endDate ||
+    !Array.isArray(records) ||
+    records.length === 0
+  ) {
+    throw new APIError(
+      400,
+      "Start date, end date, and non-empty records are required"
+    );
+  }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (isNaN(start) || isNaN(end)) {
+    throw new APIError(400, "Invalid start or end date format");
+  }
+
+  if (start > end) {
+    throw new APIError(400, "Start date cannot be after end date");
+  }
+
+  const daysDifference = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  if (daysDifference > 31) {
+    throw new APIError(400, "Date range cannot exceed 31 days");
+  }
+
+  // Get valid employees under the admin
+  const adminEmployees = await EmployeeModel.find({ adminId: admin._id })
+    .select("_id")
+    .lean();
+
+  const validEmployeeIds = new Set(adminEmployees.map((e) => e._id.toString()));
+  const recordEmployeeIds = records.map((r) => r.employeeId);
+
+  const existingRecords = await AttendanceModel.find({
+    adminId: admin._id,
+    employeeId: { $in: recordEmployeeIds },
+    date: { $gte: start, $lte: end },
+  })
+    .select("employeeId date")
+    .lean();
+
+  const existingSet = new Set(
+    existingRecords.map(
+      (r) => `${r.employeeId}_${r.date.toISOString().split("T")[0]}`
+    )
+  );
+
+  const generateDateRange = (start, end) => {
+    const dates = [];
+    const current = new Date(start);
+    while (current <= end) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
+
+  const dateRange = generateDateRange(start, end);
+
+  const newRecords = [];
+  const invalidEmployees = [];
+  const duplicateRecords = [];
+
+  for (const { employeeId, attendanceStatus, remarks = "" } of records) {
+    if (!employeeId || !attendanceStatus) {
+      throw new APIError(
+        400,
+        "Each record must contain employeeId and attendanceStatus"
+      );
+    }
+
+    if (!validEmployeeIds.has(employeeId)) {
+      invalidEmployees.push(employeeId);
+      continue;
+    }
+
+    for (const date of dateRange) {
+      const key = `${employeeId}_${date.toISOString().split("T")[0]}`;
+      if (existingSet.has(key)) {
+        duplicateRecords.push({ employeeId, date: key.split("_")[1] });
+        continue;
+      }
+
+      newRecords.push({
+        adminId: admin._id,
+        employeeId,
+        attendanceStatus,
+        date,
+        remarks,
+      });
+    }
+  }
+
+  if (newRecords.length === 0) {
+    const reason =
+      invalidEmployees.length > 0
+        ? "None of the provided employees belong to this admin"
+        : "All attendance records already exist";
+    throw new APIError(400, reason);
+  }
+
+  const inserted = await AttendanceModel.insertMany(newRecords);
+  if (!inserted || inserted.length === 0) {
+    throw new APIError(500, "Failed to insert new attendance records");
+  }
+
+  // Response messages
+  const messages = [
+    `Marked ${inserted.length} records across ${daysDifference} days`,
+  ];
+  if (invalidEmployees.length)
+    messages.push(`Skipped ${invalidEmployees.length} invalid employees`);
+  if (duplicateRecords.length)
+    messages.push(`Skipped ${duplicateRecords.length} duplicate records`);
+
+  return res.status(200).json(
+    new APIresponse(
+      200,
+      {
+        attendanceRecords: inserted.length,
+        totalDays: daysDifference,
+        totalEmployees: records.length,
+        processedRecords: inserted.length,
+        skippedEmployees: invalidEmployees,
+        duplicateRecords,
+        dateRange: {
+          startDate: start.toISOString().split("T")[0],
+          endDate: end.toISOString().split("T")[0],
+        },
+      },
+      messages.join(". ")
+    )
+  );
+});
+
+
 export {
   registerAdmin,
   loginAdmin,
@@ -1121,5 +1265,6 @@ export {
   getHistory,
   getLeaveDetails,
   setLeaveStatus,
-  updateAttendance
+  updateAttendance,
+  markBulkAttendance,
 };
