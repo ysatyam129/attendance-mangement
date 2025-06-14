@@ -52,14 +52,14 @@ const generateAccessTokenAndRefreshToken = async (adminId) => {
     throw new APIError(
       500,
       "Something went wrong while generating access and refresh token: " +
-        error.message
+      error.message
     );
   }
 };
 
 const registerAdmin = asyncHandler(async (req, res) => {
   const { name, email, phone, role, password } = req.body;
-
+  console.log("This is the body of the request", req.body);
   if (!name || !email || !phone || !role || !password) {
     throw new APIError(400, "All required fields must be provided");
   }
@@ -531,6 +531,8 @@ const getEmployees = asyncHandler(async (req, res) => {
 });
 
 const updateEmployee = asyncHandler(async (req, res) => {
+  console.log("This is the body of the request", req.body);
+  // const employeeId = req.params.employeeId;
   const {
     employeeId,
     fullname,
@@ -604,7 +606,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
   const updateData = {};
 
-  if (employeeId) updateData.employeeId = employeeId;
+  // if (employeeId) updateData.employeeId = employeeId;
   if (fullname) updateData.fullname = fullname.toLowerCase();
   if (email) updateData.email = email.toLowerCase();
   if (phone) updateData.phone = phone;
@@ -874,6 +876,7 @@ const getHistory = asyncHandler(async (req, res) => {
       },
       {
         $project: {
+          _id: 1,
           date: 1,
           attendanceStatus: 1,
           employeeId: "$employee.employeeId",
@@ -904,6 +907,7 @@ const getHistory = asyncHandler(async (req, res) => {
       }
 
       groupedByDate[dateString].push({
+        _id: record._id,
         employeeId: record.employeeId,
         attendanceStatus: record.attendanceStatus,
         remarks: record.remarks || null,
@@ -999,46 +1003,250 @@ const getLeaveDetails = asyncHandler(async (req, res) => {
 
 const setLeaveStatus = asyncHandler(async (req, res) => {
   const { leaveId, status, } = req.body;
-  const { rejectedReason = "" } = req.body || {};
+  const { rejectionReason } = req.body || {};
+
+  console.log("This is the rejected reason", rejectionReason);
   const admin = req.admin;
 
   if (!leaveId || !status) {
     throw new APIError(400, "Leave ID and status are required");
   }
 
-  if (status == "rejected" && !req.body.rejectedReason){
+  if (status == "rejected" && !req.body.rejectionReason) {
     throw new APIError(400, "Leave rejected reason is required");
   }
 
-    try {
-      const leaveRecord = await LeaveModel.findById(leaveId);
+  try {
+    const leaveRecord = await LeaveModel.findById(leaveId);
 
-      if (!leaveRecord) {
-        throw new APIError(404, "Leave record not found");
-      }
+    if (!leaveRecord) {
+      throw new APIError(404, "Leave record not found");
+    }
 
-      if (leaveRecord.adminId.toString() !== admin._id.toString()) {
-        throw new APIError(
-          403,
-          "You don't have permission to update this leave record"
-        );
-      }
-
-      leaveRecord.status = status;
-      leaveRecord.rejectedReason = rejectedReason || null;
-      leaveRecord.updatedAt = new Date();
-      await leaveRecord.save();
-
-      return res
-        .status(200)
-        .json(new APIresponse(200, {}, "Leave status updated successfully"));
-    } catch (error) {
+    if (leaveRecord.adminId.toString() !== admin._id.toString()) {
       throw new APIError(
-        500,
-        `Failed to update leave status: ${error.message}`
+        403,
+        "You don't have permission to update this leave record"
       );
     }
+
+    leaveRecord.status = status;
+    leaveRecord.rejectedReason = rejectionReason || null;
+    leaveRecord.updatedAt = new Date();
+    await leaveRecord.save();
+
+    return res
+      .status(200)
+      .json(new APIresponse(200, {}, "Leave status updated successfully"));
+  } catch (error) {
+    throw new APIError(
+      500,
+      `Failed to update leave status: ${error.message}`
+    );
+  }
 });
+
+const updateAttendance = asyncHandler(async (req, res) => {
+  try {
+    const { employeeId, date, newStatus, newRemarks } = req.body;
+    const admin = req.admin;
+
+    console.log("This is the body of the request", req.body);
+
+    if (!employeeId || !date || !newStatus) {
+      throw new APIError(
+        400,
+        "Employee ID, date, and newStatus are required"
+      );
+    }
+
+    // const employee = await EmployeeModel.findOne({
+    //   employeeId,
+    //   adminId: admin._id,
+    // });
+    // if (!employee) {
+    //   throw new APIError(
+    //     403,
+    //     "This employee does not belong to the authenticated admin"
+    //   );
+    // }
+
+    // console.log(employee)
+
+    // const Id = employee._id
+
+    const updatedRecord = await AttendanceModel.findOneAndUpdate(
+      { _id: employeeId},
+      {
+        $set: {
+          attendanceStatus: newStatus,
+          remarks: newRemarks || "",
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedRecord) {
+      throw new APIError(
+        404,
+        "No attendance record found for this employee on the specified date"
+      );
+    }
+
+    return res
+      .status(200)
+      .json(
+        new APIresponse(200, updatedRecord, "Attendance updated successfully")
+      );
+  } catch (error) {
+    console.error("Error at update attendance: ", error)
+    throw new APIError(500, `Failed to update attendance: ${error.message}`);
+  }
+});
+
+const markBulkAttendance = asyncHandler(async (req, res) => {
+  const { startDate, endDate, records } = req.body;
+  const admin = req.admin;
+
+  // Input validation
+  if (
+    !startDate ||
+    !endDate ||
+    !Array.isArray(records) ||
+    records.length === 0
+  ) {
+    throw new APIError(
+      400,
+      "Start date, end date, and non-empty records are required"
+    );
+  }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (isNaN(start) || isNaN(end)) {
+    throw new APIError(400, "Invalid start or end date format");
+  }
+
+  if (start > end) {
+    throw new APIError(400, "Start date cannot be after end date");
+  }
+
+  const daysDifference = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  if (daysDifference > 31) {
+    throw new APIError(400, "Date range cannot exceed 31 days");
+  }
+
+  // Get valid employees under the admin
+  const adminEmployees = await EmployeeModel.find({ adminId: admin._id })
+    .select("_id")
+    .lean();
+
+  const validEmployeeIds = new Set(adminEmployees.map((e) => e._id.toString()));
+  const recordEmployeeIds = records.map((r) => r.employeeId);
+
+  const existingRecords = await AttendanceModel.find({
+    adminId: admin._id,
+    employeeId: { $in: recordEmployeeIds },
+    date: { $gte: start, $lte: end },
+  })
+    .select("employeeId date")
+    .lean();
+
+  const existingSet = new Set(
+    existingRecords.map(
+      (r) => `${r.employeeId}_${r.date.toISOString().split("T")[0]}`
+    )
+  );
+
+  const generateDateRange = (start, end) => {
+    const dates = [];
+    const current = new Date(start);
+    while (current <= end) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
+
+  const dateRange = generateDateRange(start, end);
+
+  const newRecords = [];
+  const invalidEmployees = [];
+  const duplicateRecords = [];
+
+  for (const { employeeId, attendanceStatus, remarks = "" } of records) {
+    if (!employeeId || !attendanceStatus) {
+      throw new APIError(
+        400,
+        "Each record must contain employeeId and attendanceStatus"
+      );
+    }
+
+    if (!validEmployeeIds.has(employeeId)) {
+      invalidEmployees.push(employeeId);
+      continue;
+    }
+
+    for (const date of dateRange) {
+      const key = `${employeeId}_${date.toISOString().split("T")[0]}`;
+      if (existingSet.has(key)) {
+        duplicateRecords.push({ employeeId, date: key.split("_")[1] });
+        continue;
+      }
+
+      newRecords.push({
+        adminId: admin._id,
+        employeeId,
+        attendanceStatus,
+        date,
+        remarks,
+      });
+    }
+  }
+
+  if (newRecords.length === 0) {
+    const reason =
+      invalidEmployees.length > 0
+        ? "None of the provided employees belong to this admin"
+        : "All attendance records already exist";
+    throw new APIError(400, reason);
+  }
+
+  const inserted = await AttendanceModel.insertMany(newRecords);
+  if (!inserted || inserted.length === 0) {
+    throw new APIError(500, "Failed to insert new attendance records");
+  }
+
+  // Response messages
+  const messages = [
+    `Marked ${inserted.length} records across ${daysDifference} days`,
+  ];
+  if (invalidEmployees.length)
+    messages.push(`Skipped ${invalidEmployees.length} invalid employees`);
+  if (duplicateRecords.length)
+    messages.push(`Skipped ${duplicateRecords.length} duplicate records`);
+
+  return res.status(200).json(
+    new APIresponse(
+      200,
+      {
+        attendanceRecords: inserted.length,
+        totalDays: daysDifference,
+        totalEmployees: records.length,
+        processedRecords: inserted.length,
+        skippedEmployees: invalidEmployees,
+        duplicateRecords,
+        dateRange: {
+          startDate: start.toISOString().split("T")[0],
+          endDate: end.toISOString().split("T")[0],
+        },
+      },
+      messages.join(". ")
+    )
+  );
+});
+
 
 export {
   registerAdmin,
@@ -1057,4 +1265,6 @@ export {
   getHistory,
   getLeaveDetails,
   setLeaveStatus,
+  updateAttendance,
+  markBulkAttendance,
 };

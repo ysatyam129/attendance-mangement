@@ -11,7 +11,10 @@ const app = express()
 // }))
 app.use(
     cors({
-      origin:"http://localhost:3000",
+     origin:"https://atm.indibus.net",
+      // origin: "*",
+      // origin: "http://localhost:3000",
+
       credentials: true,
     })
   );
@@ -27,7 +30,7 @@ app.use(cookieParser())
 
 
 import adminRoutes from "./routes/admin.routes.js"
-app.use("/api/v1/", adminRoutes)
+app.use("/api/v1", adminRoutes)
 
 
 import employeeRoutes from "./routes/employee.routes.js"

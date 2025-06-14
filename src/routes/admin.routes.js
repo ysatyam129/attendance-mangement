@@ -15,6 +15,8 @@ import {
   getHistory,
   getLeaveDetails,
   setLeaveStatus,
+  updateAttendance,
+  markBulkAttendance,
 } from "../controllers/admin.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { getEmployees } from "../controllers/admin.controller.js";
@@ -35,12 +37,14 @@ router.route("/change-password").post(verifyJWT, changeAdminPassword);
 // Admin privilege routes
 router.route("/register-employee").post(verifyJWT, registerEmployee);
 router.route("/get-employees").get(verifyJWT, getEmployees);
-router.route("/update-employee").patch(verifyJWT, updateEmployee);
+router.route("/update-employee").put(verifyJWT, updateEmployee);
 router.route("/delete-employee").post(verifyJWT, deleteEmployee);
 router.route("/get-employee-details").get(verifyJWT, getEmployeeDetails);
 router.route("/mark-attendance").post(verifyJWT, markAttendance);
 router.route("/get-attendance-history").get(verifyJWT, getHistory)
 router.route("/get-leave-history").get(verifyJWT, getLeaveDetails);
 router.route("/set-leave-status").patch(verifyJWT, setLeaveStatus);
+router.route("/update-attendance").patch(verifyJWT, updateAttendance);
+router.route("/mark-bulk-attendance").post(verifyJWT, markBulkAttendance);
 
 export default router;
