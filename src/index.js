@@ -14,7 +14,7 @@ connectDB()
     app.listen(process.env.PORT||8080,()=>{
       console.log({
         serverStatus:"🌐  Application is Running", 
-        URL:"http://localhost:8080"
+        URL:"https://attendance-mangement.vercel.app"
       });
     })
   })
