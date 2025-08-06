@@ -4,7 +4,11 @@ import cookieParser from "cookie-parser"
 
 const app = express()
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://attendance-management-system-fronte.vercel.app',
+  credentials: true
+}));
+// app.use(cors());
 app.use(express.json({
     limit:'16kb'
 }))
