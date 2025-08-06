@@ -9,15 +9,7 @@ const app = express()
 //     credentials:true,
 
 // }))
-app.use(
-    cors({
-     origin:"https://atm.indibus.net",
-      // origin: "*",
-      // origin: "http://localhost:3000",
-
-      credentials: true,
-    })
-  );
+app.use(cors());
 app.use(express.json({
     limit:'16kb'
 }))
