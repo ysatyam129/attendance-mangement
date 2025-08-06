@@ -35,6 +35,9 @@ app.use("/api/v1", adminRoutes)
 
 import employeeRoutes from "./routes/employee.routes.js"
 app.use("/api/v1/employee", employeeRoutes)
+app.get("/test",(req,res)=>{
+  res.send("server working")
+})
 export default app;
 
 app.use((err, req, res, next) => {
