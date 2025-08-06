@@ -122,6 +122,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
         new APIresponse(201, createdAdmin, "Admin registered successfully")
       );
   } catch (error) {
+    console.error("Registration error:", error);
     throw new APIError(500, `Failed to register admin: ${error.message}`);
   }
 });

@@ -29,7 +29,6 @@ app.use("/api/v1/employee", employeeRoutes)
 app.get("/test",(req,res)=>{
   res.send("server working")
 })
-export default app;
 
 app.use((err, req, res, next) => {
   if (process.env.NODE_ENV === "development") {
@@ -45,3 +44,5 @@ app.use((err, req, res, next) => {
     data: null,
   });
 });
+
+export default app;
